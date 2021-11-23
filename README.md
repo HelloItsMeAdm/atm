@@ -1,2 +1,2 @@
 # atm
-![Preview](./Screenshot_15)
+![Preview](./Screenshot_15.png)
