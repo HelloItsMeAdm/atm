@@ -1,15 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
-from tkinter import messagebox
 from configparser import ConfigParser
 import sqlite3 as sq
 from tkinter import messagebox
 from tabulate import tabulate
 from tkinter.simpledialog import askstring
-from tkinter.messagebox import showinfo
-import math
 import time
-import asyncio
 import re
 
 # ------------------------------- GETING READY --------------------------------
