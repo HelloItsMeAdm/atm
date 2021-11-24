@@ -45,6 +45,14 @@ dashboardWithdrawWindow = tk.Toplevel(root)
 dashboardWithdrawWindow.config(background="black")
 dashboardWithdrawWindow.withdraw()
 
+dashboardSendValueWindow = tk.Toplevel(root)
+dashboardSendValueWindow.config(background="black")
+dashboardSendValueWindow.withdraw()
+
+dashboardSendIdWindow = tk.Toplevel(root)
+dashboardSendIdWindow.config(background="black")
+dashboardSendIdWindow.withdraw()
+
 root.after(1, lambda: root.focus_force())
 
 # Read config file
@@ -70,6 +78,8 @@ clientBalance = tk.IntVar()
 clientId = tk.IntVar()
 insertValue = tk.StringVar()
 withdrawValue = tk.StringVar()
+sendValue = tk.StringVar()
+sendId = tk.StringVar()
 
 # Database
 connection = sq.connect("main.db")
@@ -139,6 +149,11 @@ def destroyDashboardInsertWindow():
 def destroyDashboardWithdrawWindow():
     dashboardWithdrawWindow.withdraw()
 
+def destroyDashboardSendValueWindow():
+    dashboardSendValueWindow.withdraw()
+
+def destroyDashboardSendIdWindow():
+    dashboardSendIdWindow.withdraw()
 
 writeIdWindow.protocol("WM_DELETE_WINDOW", destroywriteIdWindow)
 writePinWindow.protocol("WM_DELETE_WINDOW", destroywritePinWindow)
@@ -147,7 +162,8 @@ deleteUsersWindow.protocol("WM_DELETE_WINDOW", destroyUsersWindow)
 dashboardWindow.protocol("WM_DELETE_WINDOW", destroyDashboardMain)
 dashboardInsertWindow.protocol("WM_DELETE_WINDOW", destroyDashboardInsertWindow)
 dashboardWithdrawWindow.protocol("WM_DELETE_WINDOW", destroyDashboardWithdrawWindow)
-
+dashboardSendValueWindow.protocol("WM_DELETE_WINDOW", destroyDashboardSendValueWindow)
+dashboardSendIdWindow.protocol("WM_DELETE_WINDOW", destroyDashboardSendIdWindow)
 
 # ------------------------------- MAIN FUNCTIONS --------------------------------
 def insertCard():
@@ -420,7 +436,7 @@ def runDashboard(id):
 
     dashboardWindow.update()
     dashboardWindow.deiconify()
-    dashboardWindow.geometry("475x255")
+    dashboardWindow.geometry("550x255")
     dashboardWindow.resizable(False, False)
 
     cursor.execute("SELECT balance FROM clients WHERE card_id=?", (id,))
@@ -525,16 +541,93 @@ def withdrawMoneyConfirm():
         dashboardWithdrawWindow.after(1, lambda: dashboardWithdrawWindow.focus_force())
         dashboardWithdrawWindowInput.delete(0, "end")
 
-
 def logoutUser():
     global id
-
     print("User " + id.get() + " logged out! Cleared cache.")
     dashboardInsertWindow.withdraw()
     dashboardWithdrawWindow.withdraw()
     dashboardWindow.withdraw()
     return
 
+def sendMoney():
+    global dashboardSendWindow
+    global sendValue
+
+    dashboardSendValueWindow.update()
+    dashboardSendValueWindow.deiconify()
+    dashboardSendValueWindow.title("Převod peněz - Částka")
+    dashboardSendValueWindow.geometry("300x170")
+    dashboardSendValueWindow.resizable(False, False)
+    dashboardSendValueWindowInput.delete(0, "end")
+
+def sendMoneyConfirm():
+    global sendValue
+    global id
+    global clientBalance
+
+    if sendValue.get() != 0 and str.isdigit(sendValue.get()):
+        if int(sendValue.get()) < clientBalance:
+        	dashboardSendValueWindow.withdraw()
+        	sendMoneyId()
+        else:
+            messagebox.showwarning('Chyba!', "Na účtu " + str(id.get()) + " není k dispozici tolik peněz!")
+            dashboardSendValueWindow.after(1, lambda: dashboardSendValueWindow.focus_force())
+            dashboardSendValueWindowInput.delete(0, "end")
+    else:
+        messagebox.showwarning('Chyba!', "Musíš zadat číslo!")
+        dashboardSendValueWindow.after(1, lambda: dashboardSendValueWindow.focus_force())
+        dashboardSendValueWindowInput.delete(0, "end")
+
+def sendMoneyId():
+    global sendValue
+    global id
+    global sendId
+
+    dashboardSendIdWindow.update()
+    dashboardSendIdWindow.deiconify()
+    dashboardSendIdWindow.title("Převod peněz - ID")
+    dashboardSendIdWindow.geometry("300x170")
+    dashboardSendIdWindow.resizable(False, False)
+    dashboardSendIdWindowInput.delete(0, "end")
+
+def sendMoneyIdConfirm():
+	if sendId.get() != 0 and str.isdigit(sendId.get()) and len(sendId.get()) == 4 and sendId.get() != id.get():
+		cursor.execute('SELECT card_id FROM clients WHERE card_id=?', (str(sendId.get()),))
+		result = cursor.fetchone()
+
+		if result:
+			if (messagebox.askquestion("Potvrzení", "Opravdu chceš poslat " + str(sendValue.get()) + " Kč na účet " + str(sendId.get()) + "?") == "yes"):
+					
+				cursor.execute("SELECT balance FROM clients WHERE card_id=?", (sendId.get(),))
+				balanceFirstSecond = str(cursor.fetchone())
+				characters_to_remove = "(),"
+				pattern = "[" + characters_to_remove + "]"
+				balance = re.sub(pattern, "", balanceFirstSecond)
+
+				clientBalanceSecond = int(re.sub(pattern, "", balanceFirstSecond))
+
+				newClientBalanceFirst = clientBalance - int(sendValue.get())
+				newClientBalanceSecond = clientBalanceSecond + int(sendValue.get())
+
+				cursor.execute("UPDATE clients SET balance=? WHERE card_id=?", (str(newClientBalanceFirst), str(id.get())))
+				cursor.execute("UPDATE clients SET balance=? WHERE card_id=?", (str(newClientBalanceSecond), str(sendId.get())))
+
+				print("Successfully changed balance of ID " + str(id.get()) + " and ID " + str(sendId.get()))
+				print("")
+				printCurrentClients()
+
+				dashboardSendIdWindow.withdraw()
+				messagebox.showinfo("Hotovo!","Poslal jsi " + sendValue.get() + " Kč na účet " + sendId.get() + "!")
+			else:
+				dashboardSendIdWindow.after(1, lambda: dashboardSendIdWindow.focus_force())
+		else:
+			messagebox.showwarning('Chyba!', "ID účtu nebylo v databázi nalezeno!")
+			dashboardSendIdWindow.after(1, lambda: dashboardSendIdWindow.focus_force())
+			dashboardSendIdWindowInput.delete(0, 'end')
+	else:
+		messagebox.showwarning('Chyba!', "Bylo zadáno neplatné ID!")
+		dashboardSendIdWindow.after(1, lambda: dashboardSendIdWindow.focus_force())
+		dashboardSendIdWindowInput.delete(0, 'end')
 
 # ------------------------------- WIDGETS --------------------------------
 
@@ -680,6 +773,10 @@ dashboardButtonWithdrawMoney = tk.Button(secondDashboard, text="Vybrat peníze",
                                          font=("Poppins Bold", 15), command=withdrawMoney)
 dashboardButtonWithdrawMoney.pack(pady=10, side=tk.LEFT, padx=20)
 
+dashboardButtonSendMoney = tk.Button(secondDashboard, text="Poslat peníze", background="green",
+                                         font=("Poppins Bold", 15), command=sendMoney)
+dashboardButtonSendMoney.pack(pady=10, side=tk.LEFT)
+
 dashboardButtonLogout = tk.Button(dashboardWindow, text="Odhlásit", background="orange",
                                   font=("Poppins Bold", 12), command=logoutUser)
 dashboardButtonLogout.pack(pady=10)
@@ -707,6 +804,32 @@ dashboardWithdrawWindowInput.pack()
 dashboardWithdrawWindowButton = tk.Button(dashboardWithdrawWindow, text="Potvrdit!", background="green",
                                           font=("Poppins Bold", 14), command=withdrawMoneyConfirm)
 dashboardWithdrawWindowButton.pack(pady=10)
+
+
+dashboardSendValueWindowTitle = tk.Label(dashboardSendValueWindow, fg="white", bg="black", text="Zadej částku.",
+                                        font=("Poppins bold", 15))
+dashboardSendValueWindowTitle.pack()
+
+dashboardSendValueWindowInput = tk.Entry(dashboardSendValueWindow, fg="white", bg="black", textvariable=sendValue,
+                                        insertbackground="white", justify=tk.CENTER, font=("Poppins bold", 12))
+dashboardSendValueWindowInput.pack()
+
+dashboardSendValueWindowButton = tk.Button(dashboardSendValueWindow, text="Potvrdit!", background="green",
+                                          font=("Poppins Bold", 14), command=sendMoneyConfirm)
+dashboardSendValueWindowButton.pack(pady=10)
+
+
+dashboardSendIdWindowTitle = tk.Label(dashboardSendIdWindow, fg="white", bg="black", text="Zadej ID, kam \nchceš peníze poslat.",
+                                        font=("Poppins bold", 15))
+dashboardSendIdWindowTitle.pack()
+
+dashboardSendIdWindowInput = tk.Entry(dashboardSendIdWindow, fg="white", bg="black", textvariable=sendId,
+                                        insertbackground="white", justify=tk.CENTER, font=("Poppins bold", 12))
+dashboardSendIdWindowInput.pack()
+
+dashboardSendIdWindowButton = tk.Button(dashboardSendIdWindow, text="Potvrdit!", background="green",
+                                          font=("Poppins Bold", 14), command=sendMoneyIdConfirm)
+dashboardSendIdWindowButton.pack(pady=10)
 
 # ------------------------------- END THINGS --------------------------------
 
