@@ -176,9 +176,6 @@ def insertCard():
     writeIdWindow.geometry("300x140")
     writeIdWindow.resizable(False, False)
     writeIdWindowInput.focus()
-    print("Registered user logging into account!")
-    print("")
-
 
 def insertCardConfirm():
     global writeIdWindow
@@ -190,8 +187,6 @@ def insertCardConfirm():
 
         if checkExists:
             writeIdWindow.withdraw()
-            print("Logging with ID: " + id.get())
-            writePin()
         else:
             messagebox.showerror("Chyba!", "Zadané ID karty nebylo v databázi nalezeno!")
             writeIdWindowInput.delete(0, "end")
@@ -225,7 +220,7 @@ def writePinConfirm():
             cursor.execute("SELECT * FROM clients WHERE card_id= ? and card_pin= ?", (id.get(), pin.get()))
             found = cursor.fetchone()
             if found:
-                print("The PIN entry for ID " + id.get() + " was correct.")
+                print("User  " + id.get() + " logged in!")
                 print("")
                 writePinWindow.withdraw()
                 runDashboard(id.get())
@@ -617,7 +612,7 @@ def sendMoneyIdConfirm():
 				printCurrentClients()
 
 				dashboardSendIdWindow.withdraw()
-				messagebox.showinfo("Hotovo!","Poslal jsi " + sendValue.get() + " Kč na účet " + sendId.get() + "!")
+				messagebox.showinfo("Hotovo!", "Poslal jsi " + sendValue.get() + " Kč na účet " + sendId.get() + "!")
 			else:
 				dashboardSendIdWindow.after(1, lambda: dashboardSendIdWindow.focus_force())
 		else:
