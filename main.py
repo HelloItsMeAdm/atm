@@ -8,6 +8,8 @@ from tkinter.simpledialog import askstring
 import time
 import re
 
+from database import database
+
 # ------------------------------- GETING READY --------------------------------
 
 # Set main Window
@@ -89,25 +91,7 @@ currentClientsArray = cursor.execute("SELECT name, card_id, card_pin, balance FR
 print("Starting ATM - v" + version.get() + " By HelloItsMeAdm")
 print("")
 
-
-def printCurrentClients():
-    global currentClientsArray
-    cursor.execute("CREATE TABLE IF NOT EXISTS clients (name TEXT, card_id TEXT, card_pin TEXT, balance INTEGER)")
-    currentClientsArray = cursor.execute("SELECT name, card_id, card_pin, balance FROM clients").fetchall()
-    print("Fetching all clients from database...")
-    print("Fetching complete!")
-    print("")
-    if not currentClientsArray:
-        print("Current client list is EMPTY!")
-        print("")
-    else:
-        print("Current client list:")
-        print(tabulate(currentClientsArray, headers=["Name", "ID", "PIN", "Balance"]))
-        print("")
-
-
-printCurrentClients()
-
+database.printCurrentClients()
 
 # ------------------------------- HANDLE CLOSING WINDOWS --------------------------------
 def destroySession():
@@ -117,9 +101,7 @@ def destroySession():
     print("Database successfully saved. Goodbye!")
     root.destroy()
 
-
 root.protocol("WM_DELETE_WINDOW", destroySession)
-
 
 def destroywriteIdWindow():
     writeIdWindow.withdraw()
@@ -187,6 +169,7 @@ def insertCardConfirm():
 
         if checkExists:
             writeIdWindow.withdraw()
+            writePin()
         else:
             messagebox.showerror("Chyba!", "Zadané ID karty nebylo v databázi nalezeno!")
             writeIdWindowInput.delete(0, "end")
@@ -220,7 +203,7 @@ def writePinConfirm():
             cursor.execute("SELECT * FROM clients WHERE card_id= ? and card_pin= ?", (id.get(), pin.get()))
             found = cursor.fetchone()
             if found:
-                print("User  " + id.get() + " logged in!")
+                print("User " + id.get() + " logged in!")
                 print("")
                 writePinWindow.withdraw()
                 runDashboard(id.get())
@@ -266,46 +249,10 @@ def registerUser():
     registerWindow.title("Založení nového uživatelského účtu")
     registerWindow.geometry("630x270")
     registerWindow.resizable(False, False)
-    registerWindowInputName.insert(0, "Jméno")
-    registerWindowInputSurname.insert(0, "Příjmení")
-    registerWindowInputId.insert(0, "ID")
-    registerWindowInputPin.insert(0, "PIN")
-    registerWindowInputName.configure(state=tk.DISABLED)
-    registerWindowInputSurname.configure(state=tk.DISABLED)
-    registerWindowInputId.configure(state=tk.DISABLED)
-    registerWindowInputPin.configure(state=tk.DISABLED)
     registerWindowInputName.delete(0, 'end')
     registerWindowInputSurname.delete(0, 'end')
     registerWindowInputId.delete(0, 'end')
     registerWindowInputPin.delete(0, 'end')
-
-
-def registerNameClick(event):
-    registerWindowInputName.configure(state=tk.NORMAL)
-    registerWindowInputName.delete(0, tk.END)
-    registerWindowInputName.unbind('<Button-1>', registerNameClick_id)
-    registerWindowInputNameTitle.grid(row=2, padx=8)
-
-
-def registerSurnameClick(event):
-    registerWindowInputSurname.configure(state=tk.NORMAL)
-    registerWindowInputSurname.delete(0, tk.END)
-    registerWindowInputSurname.unbind('<Button-1>', registerSurnameClick_id)
-    registerWindowInputSurnameTitle.grid(row=4, padx=8)
-
-
-def registerIdClick(event):
-    registerWindowInputId.configure(state=tk.NORMAL)
-    registerWindowInputId.delete(0, tk.END)
-    registerWindowInputId.unbind('<Button-1>', registerIdClick_id)
-    registerWindowInputIdTitle.grid(row=2, column=3, padx=8)
-
-
-def registerPinClick(event):
-    registerWindowInputPin.configure(state=tk.NORMAL)
-    registerWindowInputPin.delete(0, tk.END)
-    registerWindowInputPin.unbind('<Button-1>', registerPinClick_id)
-    registerWindowInputPinTitle.grid(row=4, column=3, padx=8)
 
 
 def registerUserConfirm():
@@ -318,42 +265,37 @@ def registerUserConfirm():
     cursor.execute('SELECT card_id FROM clients WHERE card_id=?', (str(registerId.get()),))
     result = cursor.fetchone()
 
-    if registerId.get() != 0 and str.isdigit(registerId.get()) and len(
-            registerId.get()) == 4 and registerPin.get() != 0 and str.isdigit(registerPin.get()) and len(
-        registerPin.get()) == 4:
-        if result:
-            messagebox.showerror('Chyba!',
-                                 "Zadané ID (" + registerId.get() + ") je již zaregistrované v databázi! Vyber si prosím jiné.")
-            registerWindow.after(1, lambda: registerWindow.focus_force())
-        else:
-            messagebox.showinfo('Hotovo!',
-                                "Byl jsi úspěšně zaregistrován! Nyní použij následující údaje k přihlášení:\n\nID: " + registerId.get() + "\nPIN: " + registerPin.get())
-            registerWindow.withdraw()
-            print("Detected new registration! Added this card to the database:")
-            print("Owner: " + registerName.get() + " " + registerSurname.get())
-            print("ID: " + registerId.get())
-            print("PIN: " + registerPin.get())
-            print("Balance: 0 Kč")
-            print("")
-            cursor.execute(
-                "INSERT INTO clients VALUES ('" + registerName.get() + " " + registerSurname.get() + "', '" + registerId.get() + "', '" + registerPin.get() + "', 0)")
-            connection.commit()
-            printCurrentClients()
-            refreshDeleteButton()
+    if len(registerName.get()) == 0 or str.isdigit(registerName.get()) or len(registerSurname.get()) == 0 or str.isdigit(registerSurname.get()):
+        messagebox.showwarning('Chyba!', "Nesprávně zadané jméno nebo příjmení!")
+        registerWindow.after(1, lambda: registerWindow.focus_force())
     else:
-        if len(registerName.get()) == 0 or str.isdigit(registerName.get()):
-            messagebox.showwarning('Chyba!', "Nesprávně zadané jméno!")
-            registerWindow.after(1, lambda: registerWindow.focus_force())
-        elif len(registerSurname.get()) == 0 or str.isdigit(registerSurname.get()):
-            messagebox.showwarning('Chyba!', "Nesprávně zadané příjmení!")
-            registerWindow.after(1, lambda: registerWindow.focus_force())
-        elif len(registerId.get()) != 4 or not str.isdigit(registerId.get()):
+        if len(registerId.get()) != 4 or not str.isdigit(registerId.get()):
             messagebox.showwarning('Chyba!', "ID karty musí mít 4 čísla.")
             registerWindow.after(1, lambda: registerWindow.focus_force())
-        elif len(registerPin.get()) != 4 or not str.isdigit(registerPin.get()):
-            messagebox.showwarning('Chyba!', "PIN karty musí mít 4 čísla.")
-            registerWindow.after(1, lambda: registerWindow.focus_force())
-
+        else:
+            if len(registerPin.get()) != 4 or not str.isdigit(registerPin.get()):
+                messagebox.showwarning('Chyba!', "PIN karty musí mít 4 čísla.")
+                registerWindow.after(1, lambda: registerWindow.focus_force())
+            else:
+                if result:
+                    messagebox.showerror('Chyba!',
+                                         "Zadané ID (" + registerId.get() + ") je již zaregistrované v databázi! Vyber si prosím jiné.")
+                    registerWindow.after(1, lambda: registerWindow.focus_force())
+                else:
+                    messagebox.showinfo('Hotovo!',
+                                        "Byl jsi úspěšně zaregistrován! Nyní použij následující údaje k přihlášení:\n\nID: " + registerId.get() + "\nPIN: " + registerPin.get())
+                    registerWindow.withdraw()
+                    print("Detected new registration! Added this card to the database:")
+                    print("Owner: " + registerName.get() + " " + registerSurname.get())
+                    print("ID: " + registerId.get())
+                    print("PIN: " + registerPin.get())
+                    print("Balance: 0 Kč")
+                    print("")
+                    cursor.execute(
+                        "INSERT INTO clients VALUES ('" + registerName.get() + " " + registerSurname.get() + "', '" + registerId.get() + "', '" + registerPin.get() + "', 0)")
+                    connection.commit()
+                    database.printCurrentClients()
+                    refreshDeleteButton()
 
 def deleteUsers():
     deleteUsersInput.delete(0, 'end')
@@ -379,7 +321,7 @@ def deleteOneUser():
                 print("User with ID " + deleteId.get() + " has been deleted from database!")
                 print("Database successfully saved.")
                 print("")
-                printCurrentClients()
+                database.printCurrentClients()
                 refreshDeleteButton()
                 if not currentClientsArray:
                     messagebox.askquestion("Smazáno!", "Úspěšně jsi smazal uživatele s ID " + deleteId.get() + ".")
@@ -471,7 +413,7 @@ def insertMoneyConfirm():
             cursor.execute("UPDATE clients SET balance=? WHERE card_id=?", (str(insertValue.get()), str(id.get())))
             print("Successfully changed balance of ID " + id.get())
             print("")
-            printCurrentClients()
+            database.printCurrentClients()
 
             dashboardInsertWindow.withdraw()
             dashboardWindow.withdraw()
@@ -515,7 +457,7 @@ def withdrawMoneyConfirm():
                 cursor.execute("UPDATE clients SET balance=? WHERE card_id=?", (str(newClientBalance), str(id.get())))
                 print("Successfully changed balance of ID " + id.get())
                 print("")
-                printCurrentClients()
+                database.printCurrentClients()
 
                 dashboardWithdrawWindow.withdraw()
                 dashboardWindow.withdraw()
@@ -609,7 +551,7 @@ def sendMoneyIdConfirm():
 
 				print("Successfully changed balance of ID " + str(id.get()) + " and ID " + str(sendId.get()))
 				print("")
-				printCurrentClients()
+				database.printCurrentClients()
 
 				dashboardSendIdWindow.withdraw()
 				messagebox.showinfo("Hotovo!", "Poslal jsi " + sendValue.get() + " Kč na účet " + sendId.get() + "!")
@@ -698,6 +640,7 @@ registerWindowTitle = tk.Label(registerWindow, fg="white", bg="black", text="Zal
 registerWindowTitle.grid(row=1, column=2)
 
 registerWindowInputNameTitle = tk.Label(registerWindow, fg="white", bg="black", text="Jméno", font=("Poppins bold", 12))
+registerWindowInputNameTitle.grid(row=2, padx=8)
 
 registerWindowInputName = tk.Entry(registerWindow, fg="white", bg="black", textvariable=registerName,
                                    insertbackground="white", justify=tk.CENTER, font=("Poppins bold", 12),
@@ -706,6 +649,7 @@ registerWindowInputName.grid(row=3, padx=8)
 
 registerWindowInputSurnameTitle = tk.Label(registerWindow, fg="white", bg="black", text="Příjmení",
                                            font=("Poppins bold", 12))
+registerWindowInputSurnameTitle.grid(row=4, padx=8)
 
 registerWindowInputSurname = tk.Entry(registerWindow, fg="white", bg="black", textvariable=registerSurname,
                                       insertbackground="white", justify=tk.CENTER, font=("Poppins bold", 12),
@@ -713,6 +657,7 @@ registerWindowInputSurname = tk.Entry(registerWindow, fg="white", bg="black", te
 registerWindowInputSurname.grid(row=5, padx=8)
 
 registerWindowInputIdTitle = tk.Label(registerWindow, fg="white", bg="black", text="ID", font=("Poppins bold", 12))
+registerWindowInputIdTitle.grid(row=2, column=3, padx=8)
 
 registerWindowInputId = tk.Entry(registerWindow, fg="white", bg="black", textvariable=registerId,
                                  insertbackground="white", justify=tk.CENTER, font=("Poppins bold", 12),
@@ -720,16 +665,13 @@ registerWindowInputId = tk.Entry(registerWindow, fg="white", bg="black", textvar
 registerWindowInputId.grid(row=3, column=3, padx=8)
 
 registerWindowInputPinTitle = tk.Label(registerWindow, fg="white", bg="black", text="PIN", font=("Poppins bold", 12))
+registerWindowInputPinTitle.grid(row=4, column=3, padx=8)
 
 registerWindowInputPin = tk.Entry(registerWindow, fg="white", bg="black", textvariable=registerPin,
                                   insertbackground="white", justify=tk.CENTER, font=("Poppins bold", 12),
                                   disabledbackground="black", disabledforeground="gray")
 registerWindowInputPin.grid(row=5, column=3, padx=8)
 
-registerNameClick_id = registerWindowInputName.bind('<Button-1>', registerNameClick)
-registerSurnameClick_id = registerWindowInputSurname.bind('<Button-1>', registerSurnameClick)
-registerIdClick_id = registerWindowInputId.bind('<Button-1>', registerIdClick)
-registerPinClick_id = registerWindowInputPin.bind('<Button-1>', registerPinClick)
 
 registerWindowButton = tk.Button(registerWindow, text="Registrovat!", background="green", font=("Poppins Bold", 14),
                                  command=registerUserConfirm)
